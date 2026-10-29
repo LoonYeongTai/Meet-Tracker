@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Meeting Action Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Layout: one left-aligned column. Summary tiles first, then the add form, then one card per owner. */
+  :root {
+    --bg: #EDEFEE;
+    --card: #FFFFFF;
+    --ink: #22282B;
+    --muted: #667074;
+    --line: #DCE0DF;
+    --tint: #F4F6F5;
+    --slate: #6F7F7C;
+    --accent: #F08A24;
+    --on-accent: #1E2326;
+    --accent-bg: #FDEBD6;
+    --red: #B3261E;
+    --red-bg: #FCEDEB;
+    --red-solid: #B3261E;
+    --on-red: #FFFFFF;
+    --font: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --radius: 16px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15191B;
+      --card: #1E2427;
+      --ink: #E8ECEB;
+      --muted: #9AA5A3;
+      --line: #2E373A;
+      --tint: #252C2F;
+      --slate: #7F918E;
+      --accent: #F29A3D;
+      --on-accent: #1A1E20;
+      --accent-bg: #3D2C17;
+      --red: #FF9C93;
+      --red-bg: #3A2321;
+      --red-solid: #FF8A80;
+      --on-red: #3A0F0C;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15191B;
+    --card: #1E2427;
+    --ink: #E8ECEB;
+    --muted: #9AA5A3;
+    --line: #2E373A;
+    --tint: #252C2F;
+    --slate: #7F918E;
+    --accent: #F29A3D;
+    --on-accent: #1A1E20;
+    --accent-bg: #3D2C17;
+    --red: #FF9C93;
+    --red-bg: #3A2321;
+    --red-solid: #FF8A80;
+    --on-red: #3A0F0C;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { font-size: 18px; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    line-height: 1.45;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 32px 16px 80px; display: flex; flex-direction: column; gap: 20px; }
+  [hidden] { display: none !important; }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* Header */
+  .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .titles { display: flex; flex-direction: column; gap: 2px; }
+  .sync { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); cursor: pointer; font-size: .95rem; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sync:hover { background: var(--tint); }
+  .sync .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--slate); }
+  .sync[data-state="loading"] .dot { background: var(--accent); }
+  .sync[data-state="offline"] { color: var(--red); border-color: var(--red); }
+  .sync[data-state="offline"] .dot { background: var(--red-solid); }
+  .date { margin: 0; color: var(--muted); font-size: 1rem; font-weight: 500; }
+  h1 { margin: 0; font-size: 2.1rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+
+  /* Summary */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; display: flex; flex-direction: column; }
+  .stat .num { font-size: 2.8rem; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .stat .lbl { color: var(--muted); font-weight: 600; font-size: 1rem; }
+  .stat.over.has { background: var(--red-bg); border-color: var(--red); }
+  .stat.over.has .num, .stat.over.has .lbl { color: var(--red); }
+  .progress { display: flex; flex-direction: column; gap: 8px; }
+  .bar { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
+  .progress p { margin: 0; color: var(--muted); font-size: .95rem; }
+
+  /* Cards */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  .card h2 { margin: 0 0 16px; font-size: 1.3rem; font-weight: 700; }
+
+  /* Form */
+  form { display: flex; flex-direction: column; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-weight: 600; font-size: 1rem; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  input[type="text"], input[type="date"] {
+    width: 100%; min-height: 54px; padding: 10px 14px; font-size: 1.05rem;
+    background: var(--card); border: 1.5px solid var(--line); border-radius: 12px;
+  }
+  input::placeholder { color: var(--muted); opacity: .85; }
+  input[aria-invalid="true"] { border-color: var(--red); background: var(--red-bg); }
+  .form-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  .error { margin: 0; color: var(--red); font-weight: 600; font-size: 1rem; min-height: 1.45em; flex: 1 1 240px; }
+  .btn-primary {
+    min-height: 54px; padding: 0 28px; border: 0; border-radius: 12px; cursor: pointer;
+    background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 1.05rem;
+  }
+  .btn-primary:hover { filter: brightness(.95); }
+
+  /* Toolbar */
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px; gap: 2px; }
+  .seg button { border: 0; background: transparent; cursor: pointer; padding: 8px 16px; border-radius: 999px; font-weight: 600; font-size: .98rem; color: var(--muted); min-height: 42px; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-quiet { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; min-height: 42px; cursor: pointer; font-weight: 600; font-size: .98rem; color: var(--ink); }
+  .btn-quiet:hover { background: var(--tint); }
+
+  /* Sample banner */
+  .banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--accent-bg); border-radius: 12px; padding: 12px 16px; font-size: .98rem; }
+  .banner p { margin: 0; flex: 1 1 260px; }
+
+  /* Owner groups */
+  .groups { display: flex; flex-direction: column; gap: 16px; }
+  .group { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .ghead { display: flex; align-items: center; gap: 14px; padding: 18px 20px; }
+  .avatar { flex: none; width: 46px; height: 46px; border-radius: 50%; background: var(--tint); border: 1px solid var(--line); display: grid; place-items: center; font-weight: 700; color: var(--slate); font-size: 1.05rem; }
+  .gtitle { min-width: 0; flex: 1; }
+  .gname { margin: 0; font-size: 1.3rem; font-weight: 700; overflow-wrap: anywhere; }
+  .gmeta { margin: 0; color: var(--muted); font-size: .95rem; font-variant-numeric: tabular-nums; }
+  .gmeta .redtxt { color: var(--red); font-weight: 700; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  .item { display: flex; align-items: flex-start; gap: 16px; padding: 16px 20px; border-top: 1px solid var(--line); }
+  .item.overdue { background: var(--red-bg); box-shadow: inset 5px 0 0 var(--red); }
+  .tick { flex: none; padding-top: 1px; }
+  .tick input {
+    appearance: none; -webkit-appearance: none; margin: 0; cursor: pointer;
+    width: 30px; height: 30px; border-radius: 9px; border: 2px solid var(--slate); background: var(--card);
+    display: grid; place-content: center;
+  }
+  .item.overdue .tick input { border-color: var(--red); }
+  .tick input:checked {
+    background: var(--slate) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 20px no-repeat;
+    border-color: var(--slate);
+  }
+  .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .atext { margin: 0; font-size: 1.15rem; font-weight: 500; overflow-wrap: anywhere; }
+  .item.done .atext { text-decoration: line-through; color: var(--muted); }
+  .when { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: .98rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .item.overdue .when .due { color: var(--red); font-weight: 700; }
+  .chip { font-size: .85rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .chip.over { background: var(--red-solid); border-color: var(--red-solid); color: var(--on-red); }
+  .chip.today { background: var(--accent-bg); border-color: var(--accent); color: var(--ink); }
+  .del { flex: none; width: 42px; height: 42px; margin: -6px -8px 0 0; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: 1.6rem; line-height: 1; cursor: pointer; }
+  .del:hover { background: var(--tint); color: var(--red); }
+
+  .empty { background: var(--card); border: 1px dashed var(--line); border-radius: var(--radius); padding: 32px 20px; text-align: center; color: var(--muted); font-size: 1.05rem; }
+  .foot { color: var(--muted); font-size: .9rem; display: flex; flex-direction: column; gap: 4px; }
+  .foot p { margin: 0; }
+  .foot .warn { color: var(--red); font-weight: 600; }
+
+  /* Toast */
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px); display: none; align-items: center; gap: 16px; background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 12px; font-weight: 500; font-size: 1rem; box-shadow: 0 6px 24px rgba(0,0,0,.25); z-index: 10; }
+  .toast.show { display: flex; }
+  .toast button { background: none; border: 0; color: var(--accent); font-weight: 700; cursor: pointer; text-decoration: underline; padding: 4px; }
+
+  @media (max-width: 560px) {
+    .row { grid-template-columns: 1fr; }
+    .btn-primary { width: 100%; }
+    .stat { padding: 14px; }
+    .stat .num { font-size: 2.3rem; }
+    .stat .lbl { font-size: .92rem; }
+    .seg { width: 100%; }
+    .seg button { flex: 1; padding: 8px 6px; }
+    .ghead, .item { padding-left: 16px; padding-right: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .bar > span { transition: none; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <div class="titles">
+      <p class="date" id="today"></p>
+      <h1>Meeting actions</h1>
+    </div>
+    <button type="button" class="sync" id="sync" data-state="loading" title="Refresh now"><span class="dot" aria-hidden="true"></span><span id="sync-text">Connecting&hellip;</span></button>
+  </header>
+
+  <section class="stats" aria-label="Summary">
+    <div class="stat"><span class="num" id="n-open">0</span><span class="lbl">Open</span></div>
+    <div class="stat"><span class="num" id="n-done">0</span><span class="lbl">Done</span></div>
+    <div class="stat over" id="tile-over"><span class="num" id="n-over">0</span><span class="lbl">Overdue</span></div>
+  </section>
+
+  <div class="progress">
+    <div class="bar" role="progressbar" aria-label="Share of actions done" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="bar"><span id="bar-fill"></span></div>
+    <p id="progress-text"></p>
+  </div>
+
+  <section class="card" aria-labelledby="add-title">
+    <h2 id="add-title">Add an action</h2>
+    <form id="add" novalidate>
+      <div class="field">
+        <label for="f-text">What needs to be done?</label>
+        <input type="text" id="f-text" name="text" maxlength="200" autocomplete="off" placeholder="e.g. Send revised promo plan to outlets">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="f-owner">Owner</label>
+          <input type="text" id="f-owner" name="owner" maxlength="40" autocomplete="off" list="owners" placeholder="First name or role">
+          <datalist id="owners"></datalist>
+        </div>
+        <div class="field">
+          <label for="f-due">Due date</label>
+          <input type="date" id="f-due" name="due">
+        </div>
+      </div>
+      <div class="form-foot">
+        <p class="error" id="form-error" role="alert"></p>
+        <button type="submit" class="btn-primary">Add action</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="toolbar">
+    <div class="seg" role="group" aria-label="Filter actions" id="filters">
+      <button type="button" data-filter="all" aria-pressed="true">All</button>
+      <button type="button" data-filter="open" aria-pressed="false">Open</button>
+      <button type="button" data-filter="overdue" aria-pressed="false">Overdue</button>
+      <button type="button" data-filter="done" aria-pressed="false">Done</button>
+    </div>
+    <div class="tools">
+      <button type="button" class="btn-quiet" id="copy">Copy open actions</button>
+      <button type="button" class="btn-quiet" id="clear-done" hidden>Clear done</button>
+    </div>
+  </div>
+
+  <div class="banner" id="sample-banner" hidden>
+    <p>These sample actions show how the tracker works. Clear them before your first real meeting.</p>
+    <button type="button" class="btn-quiet" id="clear-samples">Clear samples</button>
+  </div>
+
+  <section class="groups" id="groups" aria-label="Actions by owner"></section>
+
+  <footer class="foot">
+    <p>Actions are stored in Supabase and shared with everyone who has this page. The list refreshes every 10 seconds.</p>
+    <p>Keep names to first names or roles. Do not enter NRIC numbers or personal contact details.</p>
+  </footer>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-msg"></span><button type="button" id="toast-undo" hidden>Undo</button></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Supabase connection ---------- */
+  var SUPABASE_URL = 'https://dhvdpkpuugrwrktbtdvn.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_QD_9O6mPRIYWgOmWDQIMtQ__2bTZv7H';
+  var TABLE = SUPABASE_URL + '/rest/v1/meeting_actions';
+  var POLL_MS = 10000;
+
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var state = { actions: [] };
+  var loaded = false;
+  var syncState = 'loading';
+  var lastSync = null;
+  var lastSig = '';
+  var pending = 0;
+  var filter = 'all';
+  var toastTimer = null;
+  var undoFn = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function api(method, query, body, prefer) {
+    var headers = { apikey: SUPABASE_KEY };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (prefer) headers.Prefer = prefer;
+    return fetch(TABLE + (query || ''), {
+      method: method,
+      headers: headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + t.slice(0, 200));
+        return t ? JSON.parse(t) : null;
+      });
+    });
+  }
+
+  function fromRow(r) {
+    return {
+      id: r.id, text: r.title, owner: r.owner, due: r.due_date, done: !!r.done,
+      doneAt: r.done_at ? Date.parse(r.done_at) : null,
+      created: Date.parse(r.created_at) || 0, sample: !!r.is_sample
+    };
+  }
+  function toRow(a) {
+    return {
+      id: a.id, title: a.text, owner: a.owner, due_date: a.due, done: a.done,
+      done_at: a.doneAt ? new Date(a.doneAt).toISOString() : null,
+      is_sample: !!a.sample, created_at: new Date(a.created || Date.now()).toISOString()
+    };
+  }
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+    });
+  }
+
+  function refresh() {
+    if (pending > 0) return Promise.resolve();
+    return api('GET', '?select=*&order=created_at.asc').then(function (rows) {
+      if (pending > 0) return;
+      var sig = JSON.stringify(rows);
+      state.actions = (rows || []).map(fromRow);
+      loaded = true;
+      syncState = 'live';
+      lastSync = new Date();
+      if (sig !== lastSig) { lastSig = sig; render(); } else { renderSync(); }
+    }).catch(function (e) {
+      console.error(e);
+      syncState = 'offline';
+      if (!loaded) render(); else renderSync();
+    });
+  }
+
+  // Apply a change on screen straight away, send it to Supabase, then reload the shared list.
+  // If Supabase refuses or cannot be reached, the screen goes back to how it was.
+  function mutate(local, request, failMsg, onOk, onFail) {
+    var before = JSON.parse(JSON.stringify(state.actions));
+    pending++;
+    local();
+    render();
+    return request().then(function (res) {
+      pending--;
+      if (onOk) onOk(res);
+      lastSig = '';
+      return refresh();
+    }, function (e) {
+      pending--;
+      console.error(e);
+      state.actions = before;
+      syncState = 'offline';
+      render();
+      if (onFail) onFail();
+      toast(failMsg);
+      lastSig = '';
+      return refresh();
+    });
+  }
+
+  /* ---------- Dates (all YYYY-MM-DD, compared as strings) ---------- */
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function iso(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function todayStr() { return iso(new Date()); }
+  function parts(s) { var p = s.split('-'); return [+p[0], +p[1], +p[2]]; }
+  function diffDays(a, b) {
+    var x = parts(a), y = parts(b);
+    return Math.round((Date.UTC(x[0], x[1] - 1, x[2]) - Date.UTC(y[0], y[1] - 1, y[2])) / 86400000);
+  }
+  function fmt(s) { var p = parts(s); return p[2] + ' ' + MONTHS[p[1] - 1] + ' ' + p[0]; }
+  function longDate(s) { var p = parts(s); return DAYS[new Date(p[0], p[1] - 1, p[2]).getDay()] + ' ' + fmt(s); }
+  function clock(d) {
+    var h = d.getHours(), m = d.getMinutes();
+    return ((h % 12) || 12) + ':' + pad(m) + (h < 12 ? ' am' : ' pm');
+  }
+
+  /* ---------- Helpers ---------- */
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function initials(name) {
+    var w = name.trim().split(/\s+/);
+    return ((w[0] || '?')[0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase();
+  }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+  function find(id) { return state.actions.filter(function (x) { return x.id === id; })[0]; }
+  function matches(a, t) {
+    if (filter === 'open') return !a.done;
+    if (filter === 'done') return a.done;
+    if (filter === 'overdue') return !a.done && a.due < t;
+    return true;
+  }
+  function sortItems(a, b) {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (a.due !== b.due) return a.due < b.due ? -1 : 1;
+    return a.created - b.created;
+  }
+  function groupByOwner(list) {
+    var map = {};
+    list.forEach(function (a) {
+      var k = a.owner.toLowerCase();
+      (map[k] = map[k] || { name: a.owner, items: [] }).items.push(a);
+    });
+    return Object.keys(map).map(function (k) { return map[k]; })
+      .sort(function (x, y) { return x.name.localeCompare(y.name, 'en-GB'); });
+  }
+
+  /* ---------- Rendering ---------- */
+  function renderSync() {
+    var b = $('sync');
+    b.setAttribute('data-state', syncState);
+    $('sync-text').textContent =
+      syncState === 'live' ? 'Live · updated ' + clock(lastSync) :
+      syncState === 'offline' ? 'Offline · tap to retry' : 'Connecting…';
+  }
+
+  function itemHTML(a, t) {
+    var over = !a.done && a.due < t;
+    var diff = diffDays(a.due, t);
+    var chip = '';
+    if (!a.done) {
+      if (over) chip = '<span class="chip over">' + plural(-diff, 'day', 'days') + ' overdue</span>';
+      else if (diff === 0) chip = '<span class="chip today">Due today</span>';
+      else if (diff === 1) chip = '<span class="chip">Tomorrow</span>';
+      else chip = '<span class="chip">in ' + diff + ' days</span>';
+    }
+    return '<li class="item' + (a.done ? ' done' : '') + (over ? ' overdue' : '') + '">' +
+      '<label class="tick"><input type="checkbox" data-toggle="' + esc(a.id) + '"' + (a.done ? ' checked' : '') +
+      ' aria-label="Mark as done: ' + esc(a.text) + '"></label>' +
+      '<div class="body"><p class="atext">' + esc(a.text) + '</p>' +
+      '<div class="when"><span class="due">Due ' + fmt(a.due) + '</span>' + chip + '</div></div>' +
+      '<button type="button" class="del" data-delete="' + esc(a.id) + '" aria-label="Delete action: ' + esc(a.text) + '">&times;</button>' +
+      '</li>';
+  }
+
+  var lastOwners = '';
+  function render() {
+    var t = todayStr();
+    var all = state.actions;
+    var openN = all.filter(function (a) { return !a.done; }).length;
+    var doneN = all.length - openN;
+    var overN = all.filter(function (a) { return !a.done && a.due < t; }).length;
+    var pct = all.length ? Math.round(doneN / all.length * 100) : 0;
+
+    renderSync();
+    $('today').textContent = longDate(t);
+    $('n-open').textContent = loaded ? openN : '–';
+    $('n-done').textContent = loaded ? doneN : '–';
+    $('n-over').textContent = loaded ? overN : '–';
+    $('tile-over').classList.toggle('has', overN > 0);
+    $('bar-fill').style.width = pct + '%';
+    $('bar').setAttribute('aria-valuenow', pct);
+    $('progress-text').textContent = !loaded ? 'Loading actions…' : all.length
+      ? doneN + ' of ' + all.length + ' actions done' + (overN ? ', ' + overN + ' overdue' : '')
+      : 'No actions yet';
+
+    $('clear-done').hidden = doneN === 0;
+    $('sample-banner').hidden = !all.some(function (a) { return a.sample; });
+
+    var owners = groupByOwner(all).map(function (g) { return '<option value="' + esc(g.name) + '">'; }).join('');
+    if (owners !== lastOwners) { $('owners').innerHTML = owners; lastOwners = owners; }
+
+    Array.prototype.forEach.call(document.querySelectorAll('#filters button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-filter') === filter));
+    });
+
+    // Remember keyboard focus inside the list so re-rendering does not lose it
+    var ae = document.activeElement, fk = null;
+    if (ae && ae.getAttribute) {
+      if (ae.hasAttribute('data-toggle')) fk = ['data-toggle', ae.getAttribute('data-toggle')];
+      else if (ae.hasAttribute('data-delete')) fk = ['data-delete', ae.getAttribute('data-delete')];
+    }
+
+    var host = $('groups');
+    if (!loaded) {
+      host.innerHTML = syncState === 'offline'
+        ? '<div class="empty">Could not reach Supabase. Check your internet connection, then <button type="button" class="btn-quiet" id="retry">Try again</button></div>'
+        : '<div class="empty">Loading actions from Supabase…</div>';
+      return;
+    }
+    if (!all.length) {
+      host.innerHTML = '<div class="empty">No actions yet. Add the first one above so nothing agreed in the meeting is forgotten.</div>';
+      return;
+    }
+    var shown = groupByOwner(all.filter(function (a) { return matches(a, t); }));
+    if (!shown.length) {
+      host.innerHTML = '<div class="empty">Nothing to show for this filter.</div>';
+      return;
+    }
+    host.innerHTML = shown.map(function (g) {
+      var mine = all.filter(function (a) { return a.owner.toLowerCase() === g.name.toLowerCase(); });
+      var o = mine.filter(function (a) { return !a.done; }).length;
+      var d = mine.length - o;
+      var ov = mine.filter(function (a) { return !a.done && a.due < t; }).length;
+      var meta = o + ' open &middot; ' + d + ' done' + (ov ? ' &middot; <span class="redtxt">' + ov + ' overdue</span>' : '');
+      return '<article class="group" aria-label="Actions for ' + esc(g.name) + '">' +
+        '<div class="ghead"><div class="avatar" aria-hidden="true">' + esc(initials(g.name)) + '</div>' +
+        '<div class="gtitle"><h3 class="gname">' + esc(g.name) + '</h3><p class="gmeta">' + meta + '</p></div></div>' +
+        '<ul>' + g.items.sort(sortItems).map(function (a) { return itemHTML(a, t); }).join('') + '</ul></article>';
+    }).join('');
+
+    if (fk) {
+      var el = host.querySelector('[' + fk[0] + '="' + fk[1] + '"]');
+      if (el) el.focus();
+    }
+  }
+
+  /* ---------- Toast and undo ---------- */
+  function toast(msg, undo) {
+    $('toast-msg').textContent = msg;
+    undoFn = undo || null;
+    $('toast-undo').hidden = !undo;
+    $('toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $('toast').classList.remove('show'); undoFn = null; }, undo ? 7000 : 3500);
+  }
+  $('toast-undo').addEventListener('click', function () {
+    var fn = undoFn;
+    undoFn = null;
+    $('toast').classList.remove('show');
+    if (fn) fn();
+  });
+  function restore(rows) {
+    // Put deleted rows back with their original ids
+    var items = rows.map(fromRow);
+    mutate(function () { state.actions = state.actions.concat(items); },
+      function () { return api('POST', '', rows.map(function (r) { return toRow(fromRow(r)); }), 'return=minimal'); },
+      'Could not undo. Check your connection and try again.');
+  }
+
+  /* ---------- Events ---------- */
+  var form = $('add');
+  var fText = $('f-text'), fOwner = $('f-owner'), fDue = $('f-due'), err = $('form-error');
+
+  [fText, fOwner, fDue].forEach(function (el) {
+    el.addEventListener('input', function () { el.removeAttribute('aria-invalid'); err.textContent = ''; });
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    [fText, fOwner, fDue].forEach(function (el) { el.removeAttribute('aria-invalid'); });
+    err.textContent = '';
+    var text = fText.value.trim();
+    var owner = fOwner.value.trim().replace(/\s+/g, ' ');
+    var due = fDue.value;
+    var missing = [];
+    if (!text) missing.push({ el: fText, label: 'the action' });
+    if (!owner) missing.push({ el: fOwner, label: 'an owner' });
+    if (!due) missing.push({ el: fDue, label: 'a due date' });
+    if (missing.length) {
+      missing.forEach(function (m) { m.el.setAttribute('aria-invalid', 'true'); });
+      err.textContent = 'Still needed: ' + missing.map(function (m) { return m.label; }).join(', ') + '.';
+      missing[0].el.focus();
+      return;
+    }
+    var existing = state.actions.filter(function (a) { return a.owner.toLowerCase() === owner.toLowerCase(); })[0];
+    if (existing) owner = existing.owner;
+    var a = { id: uuid(), owner: owner, text: text, due: due, done: false, doneAt: null, created: Date.now(), sample: false };
+    form.reset();
+    fText.focus();
+    mutate(function () { state.actions.push(a); },
+      function () { return api('POST', '', toRow(a), 'return=minimal'); },
+      'Could not save the action for ' + owner + '. Check your connection, then press Add action again.',
+      function () { toast('Action added for ' + owner + '.'); },
+      function () { fText.value = text; fOwner.value = owner; fDue.value = due; });
+  });
+
+  $('groups').addEventListener('change', function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute('data-toggle');
+    if (!id) return;
+    var a = find(id);
+    if (!a) return;
+    var done = e.target.checked;
+    var doneAt = done ? Date.now() : null;
+    mutate(function () { a.done = done; a.doneAt = doneAt; },
+      function () {
+        return api('PATCH', '?id=eq.' + encodeURIComponent(id),
+          { done: done, done_at: doneAt ? new Date(doneAt).toISOString() : null }, 'return=minimal');
+      },
+      'Could not update that action. Check your connection and try again.');
+  });
+
+  $('groups').addEventListener('click', function (e) {
+    if (e.target.id === 'retry') { syncState = 'loading'; render(); refresh(); return; }
+    var btn = e.target.closest ? e.target.closest('[data-delete]') : null;
+    if (!btn) return;
+    var id = btn.getAttribute('data-delete');
+    var a = find(id);
+    if (!a) return;
+    var row = toRow(a);
+    mutate(function () { state.actions = state.actions.filter(function (x) { return x.id !== id; }); },
+      function () { return api('DELETE', '?id=eq.' + encodeURIComponent(id), undefined, 'return=minimal'); },
+      'Could not delete that action. Check your connection and try again.',
+      function () { toast('Action deleted.', function () { restore([row]); }); });
+  });
+
+  $('filters').addEventListener('click', function (e) {
+    var f = e.target.getAttribute && e.target.getAttribute('data-filter');
+    if (!f) return;
+    filter = f;
+    render();
+  });
+
+  function bulkDelete(query, keep, label) {
+    mutate(function () { state.actions = state.actions.filter(keep); },
+      function () { return api('DELETE', query, undefined, 'return=representation'); },
+      'Could not clear those actions. Check your connection and try again.',
+      function (rows) {
+        rows = rows || [];
+        if (rows.length) toast(label(rows.length), function () { restore(rows); });
+      });
+  }
+  $('clear-done').addEventListener('click', function () {
+    bulkDelete('?done=eq.true', function (a) { return !a.done; },
+      function (n) { return plural(n, 'done action', 'done actions') + ' cleared.'; });
+  });
+  $('clear-samples').addEventListener('click', function () {
+    bulkDelete('?is_sample=eq.true', function (a) { return !a.sample; },
+      function () { return 'Sample actions cleared.'; });
+  });
+
+  $('sync').addEventListener('click', function () {
+    if (!loaded) { syncState = 'loading'; render(); }
+    lastSig = '';
+    refresh();
+  });
+
+  function summaryText() {
+    var t = todayStr();
+    var open = state.actions.filter(function (a) { return !a.done; });
+    if (!open.length) return 'No open actions as at ' + fmt(t) + '.';
+    var lines = ['Open actions as at ' + fmt(t)];
+    groupByOwner(open).forEach(function (g) {
+      lines.push('', g.name);
+      g.items.sort(sortItems).forEach(function (a) {
+        lines.push('- ' + a.text + ' (due ' + fmt(a.due) + (a.due < t ? ', overdue' : '') + ')');
+      });
+    });
+    return lines.join('\n');
+  }
+  $('copy').addEventListener('click', function () {
+    var text = summaryText();
+    function ok() { toast('Open actions copied. Paste them into your team chat or email.'); }
+    function fallback() {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        var done = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (done) ok(); else toast('Could not copy. Select the actions and copy them by hand.');
+      } catch (e) { toast('Could not copy. Select the actions and copy them by hand.'); }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(ok, fallback);
+    } else { fallback(); }
+  });
+
+  // Live updates: poll while the page is visible, and refresh on return to the tab
+  setInterval(function () { if (!document.hidden) refresh(); }, POLL_MS);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) { render(); refresh(); }
+  });
+
+  /* ---------- Start ---------- */
+  render();
+  refresh();
+})();
+</script>
+</body>
+</html>
