@@ -185,6 +185,34 @@
   .toast.show { display: flex; }
   .toast button { background: none; border: 0; color: var(--accent); font-weight: 700; cursor: pointer; text-decoration: underline; padding: 4px; }
 
+  /* Sign-in, password and user management */
+  .view { display: flex; flex-direction: column; gap: 20px; }
+  .auth { max-width: 480px; width: 100%; }
+  .auth h2 { margin-bottom: 8px; }
+  .auth form { margin-top: 12px; }
+  input[type="password"] {
+    width: 100%; min-height: 54px; padding: 10px 14px; font-size: 1.05rem;
+    background: var(--card); border: 1.5px solid var(--line); border-radius: 12px;
+  }
+  .hint { margin: 0; color: var(--muted); font-size: .95rem; }
+  .userbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  .userbar p { margin: 0; color: var(--muted); font-size: 1rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .userbar strong { color: var(--ink); font-weight: 700; }
+  .btn-quiet[aria-expanded="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn-quiet:disabled, .btn-primary:disabled { opacity: .6; cursor: progress; }
+  .btn-danger { color: var(--red); }
+  .btn-danger.confirm { background: var(--red-solid); color: var(--on-red); border-color: var(--red-solid); }
+  .table-wrap { overflow-x: auto; margin-top: 20px; border-top: 1px solid var(--line); }
+  .utable { width: 100%; border-collapse: collapse; font-size: 1rem; }
+  .utable th { text-align: left; font-size: .9rem; color: var(--muted); font-weight: 600; padding: 12px 10px 8px; white-space: nowrap; }
+  .utable td { padding: 12px 10px; border-top: 1px solid var(--line); vertical-align: middle; font-variant-numeric: tabular-nums; }
+  .utable td.uname { font-weight: 700; }
+  .utable td.acts { text-align: right; }
+  .utable .tools { justify-content: flex-end; flex-wrap: nowrap; }
+  .reset-form { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+  .reset-form input { min-height: 44px; width: 180px; font-size: 1rem; }
+  .chip.warn { background: var(--accent-bg); border-color: var(--accent); color: var(--ink); }
+
   @media (max-width: 560px) {
     .row { grid-template-columns: 1fr; }
     .btn-primary { width: 100%; }
@@ -194,6 +222,8 @@
     .seg { width: 100%; }
     .seg button { flex: 1; padding: 8px 6px; }
     .ghead, .item { padding-left: 16px; padding-right: 16px; }
+    .userbar .tools { width: 100%; }
+    .reset-form input { width: 140px; }
   }
   @media (prefers-reduced-motion: reduce) { .bar > span { transition: none; } }
 </style>
@@ -205,67 +235,152 @@
       <p class="date" id="today"></p>
       <h1>Meeting actions</h1>
     </div>
-    <button type="button" class="sync" id="sync" data-state="loading" title="Refresh now"><span class="dot" aria-hidden="true"></span><span id="sync-text">Connecting&hellip;</span></button>
+    <button type="button" class="sync" id="sync" data-state="loading" title="Refresh now" hidden><span class="dot" aria-hidden="true"></span><span id="sync-text">Connecting&hellip;</span></button>
   </header>
 
-  <section class="stats" aria-label="Summary">
-    <div class="stat"><span class="num" id="n-open">0</span><span class="lbl">Open</span></div>
-    <div class="stat"><span class="num" id="n-done">0</span><span class="lbl">Done</span></div>
-    <div class="stat over" id="tile-over"><span class="num" id="n-over">0</span><span class="lbl">Overdue</span></div>
-  </section>
+  <p class="hint" id="view-loading">Checking your sign-in&hellip;</p>
 
-  <div class="progress">
-    <div class="bar" role="progressbar" aria-label="Share of actions done" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="bar"><span id="bar-fill"></span></div>
-    <p id="progress-text"></p>
-  </div>
-
-  <section class="card" aria-labelledby="add-title">
-    <h2 id="add-title">Add an action</h2>
-    <form id="add" novalidate>
+  <section class="card auth" id="view-login" hidden aria-labelledby="login-title">
+    <h2 id="login-title">Sign in</h2>
+    <p class="hint">Use the username and password your admin gave you.</p>
+    <form id="login-form" novalidate>
       <div class="field">
-        <label for="f-text">What needs to be done?</label>
-        <input type="text" id="f-text" name="text" maxlength="200" autocomplete="off" placeholder="e.g. Send revised promo plan to outlets">
+        <label for="l-user">Username</label>
+        <input type="text" id="l-user" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="30">
       </div>
-      <div class="row">
-        <div class="field">
-          <label for="f-owner">Owner</label>
-          <input type="text" id="f-owner" name="owner" maxlength="40" autocomplete="off" list="owners" placeholder="First name or role">
-          <datalist id="owners"></datalist>
-        </div>
-        <div class="field">
-          <label for="f-due">Due date</label>
-          <input type="date" id="f-due" name="due">
-        </div>
+      <div class="field">
+        <label for="l-pass">Password</label>
+        <input type="password" id="l-pass" autocomplete="current-password" maxlength="72">
       </div>
       <div class="form-foot">
-        <p class="error" id="form-error" role="alert"></p>
-        <button type="submit" class="btn-primary">Add action</button>
+        <p class="error" id="login-error" role="alert"></p>
+        <button type="submit" class="btn-primary" id="login-btn">Sign in</button>
+      </div>
+      <p class="hint">Forgotten your password? Ask your admin to reset it.</p>
+    </form>
+  </section>
+
+  <section class="card auth" id="view-password" hidden aria-labelledby="pw-title">
+    <h2 id="pw-title">Choose a new password</h2>
+    <p class="hint" id="pw-intro"></p>
+    <form id="pw-form" novalidate>
+      <input type="text" id="pw-username" autocomplete="username" hidden>
+      <div class="field">
+        <label for="pw-new">New password</label>
+        <input type="password" id="pw-new" autocomplete="new-password" maxlength="72">
+      </div>
+      <div class="field">
+        <label for="pw-confirm">Type it again</label>
+        <input type="password" id="pw-confirm" autocomplete="new-password" maxlength="72">
+      </div>
+      <p class="hint">At least 8 characters. It cannot be &ldquo;password&rdquo; or your username.</p>
+      <p class="error" id="pw-error" role="alert"></p>
+      <div class="form-foot">
+        <div class="tools">
+          <button type="button" class="btn-quiet" id="pw-cancel">Cancel</button>
+          <button type="button" class="btn-quiet" id="pw-signout">Sign out</button>
+        </div>
+        <button type="submit" class="btn-primary" id="pw-btn">Save new password</button>
       </div>
     </form>
   </section>
 
-  <div class="toolbar">
-    <div class="seg" role="group" aria-label="Filter actions" id="filters">
-      <button type="button" data-filter="all" aria-pressed="true">All</button>
-      <button type="button" data-filter="open" aria-pressed="false">Open</button>
-      <button type="button" data-filter="overdue" aria-pressed="false">Overdue</button>
-      <button type="button" data-filter="done" aria-pressed="false">Done</button>
+  <div class="view" id="view-app" hidden>
+    <div class="userbar">
+      <p>Signed in as <strong id="me-name"></strong><span class="chip" id="me-role"></span></p>
+      <div class="tools">
+        <button type="button" class="btn-quiet" id="btn-users" hidden aria-expanded="false" aria-controls="users-card">Manage users</button>
+        <button type="button" class="btn-quiet" id="btn-password">Change password</button>
+        <button type="button" class="btn-quiet" id="btn-signout">Sign out</button>
+      </div>
     </div>
-    <div class="tools">
-      <button type="button" class="btn-quiet" id="copy">Copy open actions</button>
-      <button type="button" class="btn-quiet" id="clear-done" hidden>Clear done</button>
+
+    <section class="card" id="users-card" hidden aria-labelledby="users-title">
+      <h2 id="users-title">Manage users</h2>
+      <form id="user-form" novalidate>
+        <div class="row">
+          <div class="field">
+            <label for="u-name">Username</label>
+            <input type="text" id="u-name" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="30" placeholder="e.g. siti">
+          </div>
+          <div class="field">
+            <label for="u-pass">Initial password</label>
+            <input type="text" id="u-pass" autocomplete="off" spellcheck="false" maxlength="72" placeholder="At least 8 characters">
+          </div>
+        </div>
+        <div class="form-foot">
+          <p class="error" id="user-error" role="alert"></p>
+          <button type="submit" class="btn-primary" id="user-btn">Add user</button>
+        </div>
+        <p class="hint">Usernames use lowercase letters, numbers, dots, dashes or underscores. New users choose their own password the first time they sign in.</p>
+      </form>
+      <div class="table-wrap">
+        <table class="utable">
+          <thead><tr><th scope="col">Username</th><th scope="col">Role</th><th scope="col">Status</th><th scope="col">Last sign-in</th><th scope="col"><span class="sr">Actions</span></th></tr></thead>
+          <tbody id="users-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="Summary">
+      <div class="stat"><span class="num" id="n-open">0</span><span class="lbl">Open</span></div>
+      <div class="stat"><span class="num" id="n-done">0</span><span class="lbl">Done</span></div>
+      <div class="stat over" id="tile-over"><span class="num" id="n-over">0</span><span class="lbl">Overdue</span></div>
+    </section>
+
+    <div class="progress">
+      <div class="bar" role="progressbar" aria-label="Share of actions done" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="bar"><span id="bar-fill"></span></div>
+      <p id="progress-text"></p>
     </div>
-  </div>
 
-  <div class="banner" id="sample-banner" hidden>
-    <p>These sample actions show how the tracker works. Clear them before your first real meeting.</p>
-    <button type="button" class="btn-quiet" id="clear-samples">Clear samples</button>
-  </div>
+    <section class="card" aria-labelledby="add-title">
+      <h2 id="add-title">Add an action</h2>
+      <form id="add" novalidate>
+        <div class="field">
+          <label for="f-text">What needs to be done?</label>
+          <input type="text" id="f-text" name="text" maxlength="200" autocomplete="off" placeholder="e.g. Send revised promo plan to outlets">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="f-owner">Owner</label>
+            <input type="text" id="f-owner" name="owner" maxlength="40" autocomplete="off" list="owners" placeholder="First name or role">
+            <datalist id="owners"></datalist>
+          </div>
+          <div class="field">
+            <label for="f-due">Due date</label>
+            <input type="date" id="f-due" name="due">
+          </div>
+        </div>
+        <div class="form-foot">
+          <p class="error" id="form-error" role="alert"></p>
+          <button type="submit" class="btn-primary">Add action</button>
+        </div>
+      </form>
+    </section>
 
-  <section class="groups" id="groups" aria-label="Actions by owner"></section>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Filter actions" id="filters">
+        <button type="button" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" data-filter="open" aria-pressed="false">Open</button>
+        <button type="button" data-filter="overdue" aria-pressed="false">Overdue</button>
+        <button type="button" data-filter="done" aria-pressed="false">Done</button>
+      </div>
+      <div class="tools">
+        <button type="button" class="btn-quiet" id="copy">Copy open actions</button>
+        <button type="button" class="btn-quiet" id="clear-done" hidden>Clear done</button>
+      </div>
+    </div>
+
+    <div class="banner" id="sample-banner" hidden>
+      <p>These sample actions show how the tracker works. Clear them before your first real meeting.</p>
+      <button type="button" class="btn-quiet" id="clear-samples">Clear samples</button>
+    </div>
+
+    <section class="groups" id="groups" aria-label="Actions by owner"></section>
+  </div>
 
   <footer class="foot">
-    <p>Actions are stored in Supabase and shared with everyone who has this page. The list refreshes every 10 seconds.</p>
+    <p>Actions are stored in Supabase and refresh every 10 seconds.</p>
     <p>Keep names to first names or roles. Do not enter NRIC numbers or personal contact details.</p>
   </footer>
 </main>
@@ -279,52 +394,232 @@
   /* ---------- Supabase connection ---------- */
   var SUPABASE_URL = 'https://dhvdpkpuugrwrktbtdvn.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_QD_9O6mPRIYWgOmWDQIMtQ__2bTZv7H';
-  var TABLE = SUPABASE_URL + '/rest/v1/meeting_actions';
+  var AUTH_URL = SUPABASE_URL + '/auth/v1';
+  var REST_URL = SUPABASE_URL + '/rest/v1/';
+  var EMAIL_DOMAIN = 'meet-tracker.local';   // usernames sign in as <username>@meet-tracker.local
+  var SESSION_KEY = 'meet-tracker-session-v1';
+  var USERNAME_RE = /^[a-z0-9][a-z0-9._-]{1,29}$/;
   var POLL_MS = 10000;
 
   var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  var state = { actions: [] };
+
+  var session = null;      // { access_token, refresh_token, expires_at, user_id }
+  var profile = null;      // { id, username, is_admin, must_change_password }
+  var view = 'loading';    // loading | login | password | app
+  var pwVoluntary = false;
+  var refreshing = null;
+  var refreshTimer = null;
+
+  var state = { actions: [], usernames: [], users: [] };
   var loaded = false;
   var syncState = 'loading';
   var lastSync = null;
   var lastSig = '';
   var pending = 0;
   var filter = 'all';
+  var usersOpen = false;
+  var resetFor = null;
+  var confirmRemove = null;
+  var confirmTimer = null;
   var toastTimer = null;
   var undoFn = null;
 
   var $ = function (id) { return document.getElementById(id); };
 
-  function api(method, query, body, prefer) {
-    var headers = { apikey: SUPABASE_KEY };
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
-    if (prefer) headers.Prefer = prefer;
-    return fetch(TABLE + (query || ''), {
-      method: method,
-      headers: headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined
-    }).then(function (r) {
+  /* ---------- HTTP helpers ---------- */
+  function request(url, opts) {
+    return fetch(url, opts).then(function (r) {
       return r.text().then(function (t) {
-        if (!r.ok) throw new Error('Supabase ' + r.status + ': ' + t.slice(0, 200));
-        return t ? JSON.parse(t) : null;
+        var j = null;
+        try { j = t ? JSON.parse(t) : null; } catch (e) { j = null; }
+        if (!r.ok) {
+          var err = new Error((j && (j.message || j.msg || j.error_description || j.error)) || ('Request failed (' + r.status + ')'));
+          err.status = r.status;
+          err.code = j && (j.error_code || j.code);
+          throw err;
+        }
+        return j;
       });
+    }, function () {
+      var err = new Error('Could not reach the server. Check your internet connection.');
+      err.network = true;
+      throw err;
     });
   }
+  function headers(extra) {
+    var h = { apikey: SUPABASE_KEY };
+    if (session) h.Authorization = 'Bearer ' + session.access_token;
+    for (var k in extra) h[k] = extra[k];
+    return h;
+  }
+  function nowSec() { return Math.floor(Date.now() / 1000); }
 
+  // Calls the database API as the signed-in user, refreshing the session first when needed
+  function rest(method, path, body, prefer, retried) {
+    return ensureFresh().then(function () {
+      var extra = {};
+      if (body !== undefined) extra['Content-Type'] = 'application/json';
+      if (prefer) extra.Prefer = prefer;
+      return request(REST_URL + path, {
+        method: method, headers: headers(extra),
+        body: body !== undefined ? JSON.stringify(body) : undefined
+      });
+    }).catch(function (e) {
+      if (e.status === 401 && session && !retried) {
+        return refreshSession().then(function () { return rest(method, path, body, prefer, true); });
+      }
+      throw e;
+    });
+  }
+  function api(method, query, body, prefer) { return rest(method, 'meeting_actions' + (query || ''), body, prefer); }
+  function rpc(fn, args) { return rest('POST', 'rpc/' + fn, args || {}); }
+
+  /* ---------- Sessions ---------- */
+  function saveSession() {
+    try {
+      if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch (e) { /* storage unavailable: session lasts until the page closes */ }
+  }
+  function readSession() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+      if (s && s.access_token && s.refresh_token) return s;
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+  function setSession(d) {
+    session = {
+      access_token: d.access_token,
+      refresh_token: d.refresh_token,
+      expires_at: d.expires_at || (nowSec() + (d.expires_in || 3600)),
+      user_id: (d.user && d.user.id) || (session && session.user_id)
+    };
+    saveSession();
+    clearTimeout(refreshTimer);
+    var wait = Math.max(10, session.expires_at - nowSec() - 60) * 1000;
+    refreshTimer = setTimeout(function () { refreshSession().catch(function () {}); }, wait);
+  }
+  function refreshSession() {
+    if (!session) return Promise.reject(new Error('Not signed in'));
+    if (refreshing) return refreshing;
+    refreshing = request(AUTH_URL + '/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    }).then(function (d) {
+      refreshing = null;
+      setSession(d);
+    }, function (e) {
+      refreshing = null;
+      if (!e.network) endSession('Your session has ended. Please sign in again.');
+      throw e;
+    });
+    return refreshing;
+  }
+  function ensureFresh() {
+    if (session && session.expires_at - nowSec() < 60) return refreshSession();
+    return Promise.resolve();
+  }
+
+  function signIn(username, password) {
+    return request(AUTH_URL + '/token?grant_type=password', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: username + '@' + EMAIL_DOMAIN, password: password })
+    }).then(function (d) {
+      setSession(d);
+      return loadProfile();
+    });
+  }
+  function loadProfile() {
+    return rest('GET', 'profiles?id=eq.' + encodeURIComponent(session.user_id) + '&select=id,username,is_admin,must_change_password')
+      .then(function (rows) {
+        if (!rows || !rows.length) throw new Error('Your account has no profile. Ask your admin to check it.');
+        profile = rows[0];
+      });
+  }
+  function signOut() {
+    var token = session && session.access_token;
+    if (token) {
+      fetch(AUTH_URL + '/logout?scope=local', { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + token } })
+        .catch(function () {});
+    }
+    endSession('You have signed out.', true);
+  }
+  function endSession(msg, info) {
+    session = null;
+    profile = null;
+    saveSession();
+    clearTimeout(refreshTimer);
+    state = { actions: [], usernames: [], users: [] };
+    loaded = false; lastSig = ''; lastOwners = ''; syncState = 'loading';
+    usersOpen = false; resetFor = null; confirmRemove = null;
+    $('login-form').reset();
+    show('login');
+    var el = $('login-error');
+    el.textContent = msg || '';
+    el.style.color = info ? 'var(--muted)' : '';
+  }
+
+  /* ---------- Views ---------- */
+  function show(v) {
+    view = v;
+    $('view-loading').hidden = v !== 'loading';
+    $('view-login').hidden = v !== 'login';
+    $('view-password').hidden = v !== 'password';
+    $('view-app').hidden = v !== 'app';
+    $('sync').hidden = v !== 'app';
+    $('today').textContent = longDate(todayStr());
+    if (v === 'login') setTimeout(function () { $('l-user').focus(); }, 0);
+    if (v === 'password') {
+      $('pw-form').reset();
+      $('pw-error').textContent = '';
+      $('pw-username').value = profile ? profile.username : '';
+      $('pw-intro').textContent = pwVoluntary
+        ? 'Enter a new password for ' + profile.username + '.'
+        : 'Welcome, ' + profile.username + '. You signed in with a temporary password, so choose your own before you continue.';
+      $('pw-cancel').hidden = !pwVoluntary;
+      $('pw-signout').hidden = pwVoluntary;
+      setTimeout(function () { $('pw-new').focus(); }, 0);
+    }
+    if (v === 'app') {
+      $('me-name').textContent = profile.username;
+      $('me-role').textContent = profile.is_admin ? 'Admin' : 'Member';
+      $('btn-users').hidden = !profile.is_admin;
+      $('users-card').hidden = !(profile.is_admin && usersOpen);
+      $('btn-users').setAttribute('aria-expanded', String(usersOpen));
+      render();
+    }
+  }
+  function route() {
+    if (!session || !profile) return show('login');
+    if (profile.must_change_password) { pwVoluntary = false; return show('password'); }
+    show('app');
+    lastSig = '';
+    refresh();
+    loadUsernames();
+    if (usersOpen) loadUsers();
+  }
+  function appReady() { return view === 'app' && session && profile && !profile.must_change_password; }
+
+  /* ---------- Data ---------- */
   function fromRow(r) {
     return {
       id: r.id, text: r.title, owner: r.owner, due: r.due_date, done: !!r.done,
       doneAt: r.done_at ? Date.parse(r.done_at) : null,
-      created: Date.parse(r.created_at) || 0, sample: !!r.is_sample
+      created: Date.parse(r.created_at) || 0, sample: !!r.is_sample, createdBy: r.created_by || null
     };
   }
   function toRow(a) {
-    return {
+    var row = {
       id: a.id, title: a.text, owner: a.owner, due_date: a.due, done: a.done,
       done_at: a.doneAt ? new Date(a.doneAt).toISOString() : null,
       is_sample: !!a.sample, created_at: new Date(a.created || Date.now()).toISOString()
     };
+    if (a.createdBy) row.created_by = a.createdBy;
+    return row;
   }
   function uuid() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -334,9 +629,9 @@
   }
 
   function refresh() {
-    if (pending > 0) return Promise.resolve();
+    if (!appReady() || pending > 0) return Promise.resolve();
     return api('GET', '?select=*&order=created_at.asc').then(function (rows) {
-      if (pending > 0) return;
+      if (pending > 0 || !appReady()) return;
       var sig = JSON.stringify(rows);
       state.actions = (rows || []).map(fromRow);
       loaded = true;
@@ -345,9 +640,16 @@
       if (sig !== lastSig) { lastSig = sig; render(); } else { renderSync(); }
     }).catch(function (e) {
       console.error(e);
+      if (!session) return;
       syncState = 'offline';
       if (!loaded) render(); else renderSync();
     });
+  }
+  function loadUsernames() {
+    return rest('GET', 'profiles?select=username&order=username').then(function (rows) {
+      state.usernames = (rows || []).map(function (r) { return r.username; });
+      if (view === 'app') render();
+    }).catch(function () {});
   }
 
   // Apply a change on screen straight away, send it to Supabase, then reload the shared list.
@@ -365,6 +667,7 @@
     }, function (e) {
       pending--;
       console.error(e);
+      if (!session) return;
       state.actions = before;
       syncState = 'offline';
       render();
@@ -389,6 +692,11 @@
   function clock(d) {
     var h = d.getHours(), m = d.getMinutes();
     return ((h % 12) || 12) + ':' + pad(m) + (h < 12 ? ' am' : ' pm');
+  }
+  function fmtStamp(ts) {
+    if (!ts) return 'Never';
+    var d = new Date(ts);
+    return fmt(iso(d)) + ', ' + clock(d);
   }
 
   /* ---------- Helpers ---------- */
@@ -424,7 +732,7 @@
       .sort(function (x, y) { return x.name.localeCompare(y.name, 'en-GB'); });
   }
 
-  /* ---------- Rendering ---------- */
+  /* ---------- Rendering: actions ---------- */
   function renderSync() {
     var b = $('sync');
     b.setAttribute('data-state', syncState);
@@ -454,6 +762,7 @@
 
   var lastOwners = '';
   function render() {
+    if (view !== 'app') return;
     var t = todayStr();
     var all = state.actions;
     var openN = all.filter(function (a) { return !a.done; }).length;
@@ -476,7 +785,12 @@
     $('clear-done').hidden = doneN === 0;
     $('sample-banner').hidden = !all.some(function (a) { return a.sample; });
 
-    var owners = groupByOwner(all).map(function (g) { return '<option value="' + esc(g.name) + '">'; }).join('');
+    // Owner suggestions: existing owners plus every username
+    var seen = {}, names = [];
+    groupByOwner(all).map(function (g) { return g.name; }).concat(state.usernames).forEach(function (n) {
+      var k = n.toLowerCase(); if (!seen[k]) { seen[k] = 1; names.push(n); }
+    });
+    var owners = names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
     if (owners !== lastOwners) { $('owners').innerHTML = owners; lastOwners = owners; }
 
     Array.prototype.forEach.call(document.querySelectorAll('#filters button'), function (b) {
@@ -524,6 +838,41 @@
     }
   }
 
+  /* ---------- Rendering: users (admin) ---------- */
+  function loadUsers() {
+    return rpc('admin_list_users').then(function (rows) {
+      state.users = rows || [];
+      renderUsers();
+    }).catch(function (e) {
+      $('users-body').innerHTML = '<tr><td colspan="5" class="hint">Could not load users: ' + esc(e.message) + '</td></tr>';
+    });
+  }
+  function renderUsers() {
+    var body = $('users-body');
+    if (!state.users.length) { body.innerHTML = '<tr><td colspan="5" class="hint">Loading users…</td></tr>'; return; }
+    body.innerHTML = state.users.map(function (u) {
+      var me = u.id === profile.id;
+      var acts;
+      if (resetFor === u.id) {
+        acts = '<form class="reset-form" data-reset-form="' + esc(u.id) + '">' +
+          '<label class="sr" for="reset-' + esc(u.id) + '">New password for ' + esc(u.username) + '</label>' +
+          '<input type="text" id="reset-' + esc(u.id) + '" autocomplete="off" spellcheck="false" maxlength="72" placeholder="New password">' +
+          '<button type="submit" class="btn-quiet">Save</button>' +
+          '<button type="button" class="btn-quiet" data-reset-cancel="1">Cancel</button></form>';
+      } else {
+        acts = '<div class="tools"><button type="button" class="btn-quiet" data-reset="' + esc(u.id) + '">Reset password</button>' +
+          (me ? '' : '<button type="button" class="btn-quiet btn-danger' + (confirmRemove === u.id ? ' confirm' : '') + '" data-remove="' + esc(u.id) + '">' +
+            (confirmRemove === u.id ? 'Confirm remove' : 'Remove') + '</button>') + '</div>';
+      }
+      return '<tr><td class="uname">' + esc(u.username) + (me ? ' <span class="hint">(you)</span>' : '') + '</td>' +
+        '<td>' + (u.is_admin ? 'Admin' : 'Member') + '</td>' +
+        '<td>' + (u.must_change_password ? '<span class="chip warn">Must change password</span>' : '<span class="chip">Active</span>') + '</td>' +
+        '<td>' + esc(fmtStamp(u.last_sign_in_at)) + '</td>' +
+        '<td class="acts">' + acts + '</td></tr>';
+    }).join('');
+    if (resetFor) { var inp = $('reset-' + resetFor); if (inp) inp.focus(); }
+  }
+
   /* ---------- Toast and undo ---------- */
   function toast(msg, undo) {
     $('toast-msg').textContent = msg;
@@ -540,14 +889,160 @@
     if (fn) fn();
   });
   function restore(rows) {
-    // Put deleted rows back with their original ids
     var items = rows.map(fromRow);
     mutate(function () { state.actions = state.actions.concat(items); },
-      function () { return api('POST', '', rows.map(function (r) { return toRow(fromRow(r)); }), 'return=minimal'); },
+      function () { return api('POST', '', items.map(toRow), 'return=minimal'); },
       'Could not undo. Check your connection and try again.');
   }
+  function busy(btn, on, label) {
+    btn.disabled = on;
+    if (label) btn.textContent = label;
+  }
 
-  /* ---------- Events ---------- */
+  /* ---------- Events: sign in, password, sign out ---------- */
+  $('login-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('login-error');
+    err.style.color = '';
+    var u = $('l-user').value.trim().toLowerCase();
+    var p = $('l-pass').value;
+    var missing = [];
+    if (!u) missing.push('your username');
+    if (!p) missing.push('your password');
+    if (missing.length) { err.textContent = 'Enter ' + missing.join(' and ') + '.'; (u ? $('l-pass') : $('l-user')).focus(); return; }
+    if (!USERNAME_RE.test(u)) { err.textContent = 'Username or password is incorrect.'; return; }
+    err.textContent = '';
+    var btn = $('login-btn');
+    busy(btn, true, 'Signing in…');
+    signIn(u, p).then(function () {
+      busy(btn, false, 'Sign in');
+      $('login-form').reset();
+      route();
+    }).catch(function (ex) {
+      busy(btn, false, 'Sign in');
+      if (!ex.network && session) { session = null; profile = null; saveSession(); }
+      err.textContent = ex.network ? ex.message
+        : (ex.status === 400 || ex.code === 'invalid_credentials') ? 'Username or password is incorrect.'
+        : ex.message;
+      $('l-pass').value = '';
+      $('l-pass').focus();
+    });
+  });
+
+  $('pw-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('pw-error');
+    var p1 = $('pw-new').value, p2 = $('pw-confirm').value;
+    var problem =
+      !p1 ? 'Enter a new password.' :
+      p1.length < 8 ? 'Your new password needs at least 8 characters.' :
+      p1.toLowerCase() === 'password' ? 'Choose something other than “password”.' :
+      p1.toLowerCase() === profile.username ? 'Your password cannot be your username.' :
+      p1 !== p2 ? 'The two passwords do not match.' : '';
+    if (problem) { err.textContent = problem; $(p1 && p1 === p2 ? 'pw-new' : (!p1 || p1.length < 8 ? 'pw-new' : 'pw-confirm')).focus(); return; }
+    err.textContent = '';
+    var btn = $('pw-btn');
+    busy(btn, true, 'Saving…');
+    ensureFresh().then(function () {
+      return request(AUTH_URL + '/user', {
+        method: 'PUT', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ password: p1 })
+      });
+    }).then(function () {
+      return rpc('mark_password_changed');
+    }).then(function () {
+      busy(btn, false, 'Save new password');
+      profile.must_change_password = false;
+      route();
+      toast('Password changed.');
+    }).catch(function (ex) {
+      busy(btn, false, 'Save new password');
+      if (!session) return;
+      err.textContent = ex.code === 'same_password' ? 'Choose a password you have not used here before.' : ex.message;
+    });
+  });
+  $('pw-cancel').addEventListener('click', function () { route(); });
+  $('pw-signout').addEventListener('click', signOut);
+  $('btn-signout').addEventListener('click', signOut);
+  $('btn-password').addEventListener('click', function () { pwVoluntary = true; show('password'); });
+
+  /* ---------- Events: user management ---------- */
+  $('btn-users').addEventListener('click', function () {
+    usersOpen = !usersOpen;
+    $('users-card').hidden = !usersOpen;
+    this.setAttribute('aria-expanded', String(usersOpen));
+    if (usersOpen) { renderUsers(); loadUsers(); setTimeout(function () { $('u-name').focus(); }, 0); }
+  });
+
+  $('user-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('user-error');
+    var name = $('u-name'), pass = $('u-pass');
+    [name, pass].forEach(function (el) { el.removeAttribute('aria-invalid'); });
+    var u = name.value.trim().toLowerCase(), p = pass.value;
+    var problem = null, field = null;
+    if (!u && !p) { problem = 'Still needed: a username, an initial password.'; field = name; }
+    else if (!u) { problem = 'Still needed: a username.'; field = name; }
+    else if (!USERNAME_RE.test(u)) { problem = 'Usernames must be 2 to 30 characters: lowercase letters, numbers, dots, dashes or underscores.'; field = name; }
+    else if (!p) { problem = 'Still needed: an initial password.'; field = pass; }
+    else if (p.length < 8) { problem = 'The initial password must be at least 8 characters.'; field = pass; }
+    if (problem) { err.textContent = problem; field.setAttribute('aria-invalid', 'true'); field.focus(); return; }
+    err.textContent = '';
+    var btn = $('user-btn');
+    busy(btn, true, 'Adding…');
+    rpc('admin_create_user', { p_username: u, p_password: p }).then(function () {
+      busy(btn, false, 'Add user');
+      $('user-form').reset();
+      toast('User ' + u + ' added. They will choose a new password when they first sign in.');
+      loadUsers();
+      loadUsernames();
+      name.focus();
+    }).catch(function (ex) {
+      busy(btn, false, 'Add user');
+      err.textContent = ex.message;
+    });
+  });
+
+  $('users-body').addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.hasAttribute('data-reset')) { resetFor = t.getAttribute('data-reset'); confirmRemove = null; renderUsers(); return; }
+    if (t.hasAttribute('data-reset-cancel')) { resetFor = null; renderUsers(); return; }
+    if (t.hasAttribute('data-remove')) {
+      var id = t.getAttribute('data-remove');
+      var user = state.users.filter(function (x) { return x.id === id; })[0];
+      if (confirmRemove !== id) {
+        confirmRemove = id; resetFor = null; renderUsers();
+        clearTimeout(confirmTimer);
+        confirmTimer = setTimeout(function () { confirmRemove = null; renderUsers(); }, 5000);
+        var again = document.querySelector('[data-remove="' + id + '"]'); if (again) again.focus();
+        return;
+      }
+      clearTimeout(confirmTimer);
+      confirmRemove = null;
+      t.disabled = true;
+      rpc('admin_delete_user', { p_user_id: id }).then(function () {
+        toast('User ' + (user ? user.username : '') + ' removed. Their actions stay on the list.');
+        loadUsers(); loadUsernames();
+      }).catch(function (ex) { toast(ex.message); renderUsers(); });
+    }
+  });
+  $('users-body').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var f = e.target;
+    var id = f.getAttribute('data-reset-form');
+    if (!id) return;
+    var inp = f.querySelector('input');
+    var p = inp.value;
+    if (p.length < 8) { toast('The new password must be at least 8 characters.'); inp.focus(); return; }
+    var user = state.users.filter(function (x) { return x.id === id; })[0];
+    Array.prototype.forEach.call(f.querySelectorAll('button'), function (b) { b.disabled = true; });
+    rpc('admin_reset_password', { p_user_id: id, p_password: p }).then(function () {
+      resetFor = null;
+      toast('Password reset for ' + (user ? user.username : 'that user') + '. They must choose a new one at next sign-in.');
+      loadUsers();
+    }).catch(function (ex) { toast(ex.message); renderUsers(); });
+  });
+
+  /* ---------- Events: actions ---------- */
   var form = $('add');
   var fText = $('f-text'), fOwner = $('f-owner'), fDue = $('f-due'), err = $('form-error');
 
@@ -678,12 +1173,29 @@
   // Live updates: poll while the page is visible, and refresh on return to the tab
   setInterval(function () { if (!document.hidden) refresh(); }, POLL_MS);
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) { render(); refresh(); }
+    if (!document.hidden && appReady()) { render(); refresh(); }
+  });
+  // Signing out in one tab signs out the others
+  window.addEventListener('storage', function (e) {
+    if (e.key === SESSION_KEY && !e.newValue && session) endSession('You signed out in another tab.', true);
   });
 
   /* ---------- Start ---------- */
-  render();
-  refresh();
+  show('loading');
+  session = readSession();
+  if (!session) {
+    show('login');
+  } else {
+    setSession(session);
+    ensureFresh().then(loadProfile).then(route).catch(function (e) {
+      if (session && e.network) {
+        show('login');
+        $('login-error').textContent = e.message;
+      } else if (session) {
+        endSession('Please sign in again.');
+      }
+    });
+  }
 })();
 </script>
 </body>

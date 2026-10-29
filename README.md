@@ -48,3 +48,10 @@ If you move to another Supabase project, update both values in `index.html` and 
 ## Data guidance
 
 Use first names or roles for owners. Do not enter NRIC numbers or personal contact details.
+
+## Sign-in and user management
+
+- Users sign in with a username and password. Behind the scenes the username maps to `<username>@meet-tracker.local` in Supabase Auth (`auth.users`).
+- Starting users: `priya` (admin), `dan`, `marcus`. Each must choose a new password at first sign-in.
+- Admins see **Manage users** to add users with an initial password, reset passwords and remove users. These run through the database functions `admin_create_user`, `admin_reset_password`, `admin_delete_user` and `admin_list_users`, which refuse anyone who is not an admin.
+- The `profiles` table stores each user's username, admin flag and whether they must change their password.

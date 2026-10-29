@@ -37,3 +37,7 @@ insert into public.meeting_actions (title, owner, due_date, done, done_at, is_sa
   ('Share Q3 shrinkage figures with finance', 'Mei Ling', '2026-10-29', false, null, true),
   ('Update opening hours on outlet signage', 'Mei Ling', '2026-10-26', true, now(), true),
   ('Collect cashier feedback on the new receipt layout', 'Raj', '2026-11-08', false, null, true);
+
+-- Sign-in and user management (profiles table, admin functions, created_by column)
+-- were added on 29 Oct 2026 by the Supabase migration "add_user_management".
+-- See Database → Migrations in the Supabase dashboard for the full SQL.
